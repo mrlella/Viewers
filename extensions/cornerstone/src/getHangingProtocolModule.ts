@@ -1,12 +1,15 @@
-const mpr = {
-  id: 'mpr',
+import { Types } from '@ohif/core';
+
+const mpr: Types.HangingProtocol.Protocol = {
   locked: true,
   hasUpdatedPriorsInformation: false,
   name: 'mpr',
   createdDate: '2021-02-23T19:22:08.894Z',
-  modifiedDate: '2022-10-04T19:22:08.894Z',
+  modifiedDate: '2023-02-17',
   availableTo: {},
   editableBy: {},
+  // Unknown number of priors referenced - so just match any study
+  numberOfPriorsReferenced: 0,
   protocolMatchingRules: [],
   imageLoadStrategy: 'nth',
   displaySetSelectors: {
@@ -27,8 +30,7 @@ const mpr = {
   },
   stages: [
     {
-      id: 'mpr3Stage',
-      name: 'mpr',
+      name: 'MPR 1x3',
       viewportStructure: {
         layoutType: 'grid',
         properties: {
@@ -60,7 +62,7 @@ const mpr = {
         {
           viewportOptions: {
             toolGroupId: 'mpr',
-            viewportType: 'volume',
+            viewportType: 'orthographic',
             orientation: 'axial',
             initialImageOptions: {
               preset: 'middle',
@@ -77,6 +79,7 @@ const mpr = {
           displaySets: [
             {
               id: 'mprDisplaySet',
+              reuseId: 'activeDisplaySet',
             },
           ],
         },
@@ -100,6 +103,7 @@ const mpr = {
           displaySets: [
             {
               id: 'mprDisplaySet',
+              reuseId: 'activeDisplaySet',
             },
           ],
         },
@@ -123,6 +127,7 @@ const mpr = {
           displaySets: [
             {
               id: 'mprDisplaySet',
+              reuseId: 'activeDisplaySet',
             },
           ],
         },
