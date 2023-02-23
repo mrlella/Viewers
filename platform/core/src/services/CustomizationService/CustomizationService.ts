@@ -178,9 +178,11 @@ export default class CustomizationService extends PubSubService {
     const { customizationType } = customization;
     if (!customizationType) return customization;
     const parent = this.getModeCustomization(customizationType);
-    return parent
+    const result = parent
       ? Object.assign(Object.create(parent), customization)
       : customization;
+    // Execute an nested type information
+    return result.applyType?.(this) || result;
   }
 
   public addModeCustomizations(modeCustomizations): void {

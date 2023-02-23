@@ -41,20 +41,12 @@ export default class ContextMenuController {
       return;
     }
 
-    const {
-      event,
-      subMenu,
-      menuId,
-      menus,
-      refs,
-      checkProps,
-    } = contextMenuProps;
+    const { event, subMenu, menuId, menus, checkProps } = contextMenuProps;
 
     const items = ContextMenuItemsBuilder.getMenuItems(
       checkProps || contextMenuProps,
       event,
       menus,
-      refs,
       menuId
     );
 
@@ -82,7 +74,6 @@ export default class ContextMenuController {
         event,
         subMenu,
         eventData: event?.detail,
-        refs,
         onRunCommands: item => {
           const { commands } = item;
 
@@ -91,7 +82,6 @@ export default class ContextMenuController {
               command.commandName,
               {
                 ...command.commandOptions,
-                refs,
                 ...checkProps,
               },
               command.context
@@ -125,22 +115,11 @@ export default class ContextMenuController {
         },
 
         onDefault: (item, itemRef, subProps) => {
-          const { commandName, commandOptions, context } = itemRef;
-
-          if (!commandName) {
-            return;
-          }
-
-          this.commandsManager.runCommand(
-            commandName,
-            {
-              ...itemRef,
-              ...commandOptions,
-              ...checkProps,
-              refs,
-            },
-            context
-          );
+          this.commandsManager.run(item, {
+            ...checkProps,
+            ...itemRef,
+            subProps,
+          });
         },
       },
     });

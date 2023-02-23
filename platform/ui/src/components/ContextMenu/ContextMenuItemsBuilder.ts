@@ -88,7 +88,6 @@ export function findMenu(
  * @param checkProps
  * @param {*} event event that originates the context menu
  * @param {*} menus List of menus
- * @param {*} refs Object containing references content of menus links
  * @param {*} menuIdFilter
  * @returns
  */
@@ -96,7 +95,6 @@ export function getMenuItems(
   checkProps: Types.IProps,
   event,
   menus,
-  refs,
   menuIdFilter
 ) {
   // Include both the check props and the ...check props as one is used
@@ -122,11 +120,10 @@ export function getMenuItems(
       if (delegating) {
         menuItems = [
           ...menuItems,
-          ...getMenuItems(checkProps, event, menus, refs, subMenu),
+          ...getMenuItems(checkProps, event, menus, subMenu),
         ];
       } else {
-        const _item = parseItemReferences(menu.attribute, item, refs);
-        const toAdd = adaptItem(menu.attribute, _item, subProps);
+        const toAdd = adaptItem(item, subProps);
         menuItems.push(toAdd);
       }
     }
@@ -136,44 +133,17 @@ export function getMenuItems(
 }
 
 /**
- * Returns the menu item containing any reference content replaced.
- * Its sort of adaption but only to replace reference content links.
- *
- * @param {string} linkedProperty string for linked property
- * @param {Object} item
- * @param {Object} refs object containing reference contents.
- * @returns
- */
-export function parseItemReferences(linkedProperty, item, refs) {
-  const _item = { ...item };
-
-  if (linkedProperty in _item) {
-    const valueReference = item[linkedProperty];
-    const linkedContent = valueReference && refs[valueReference];
-    if (!linkedContent) {
-      console.log('Missing linked content for', linkedProperty);
-      return _item;
-    }
-
-    _item[linkedProperty] = linkedContent || {};
-    _item[linkedProperty].ref = valueReference;
-    _item.labelRef = linkedContent.text;
-  }
-
-  return _item;
-}
-
-/**
  * Returns item adapted to be consumed by ContextMenu component
  *
- * @param {string} linkedProperty string for linked property
  * @param {Object} item
  * @param {Object} subProps
  * @returns
  */
-export function adaptItem(linkedProperty, item, subProps: Types.IProps = {}) {
-  const newItem = { ...item, value: subProps.checkProps?.value };
-  newItem.label = newItem.label || (newItem[linkedProperty] || {}).text;
+export function adaptItem(item, subProps: Types.IProps = {}) {
+  const newItem = item.adaptItem?.(item, subProps) || {
+    ...item,
+    value: subProps.checkProps?.value,
+  };
 
   if (!item.action) {
     newItem.action = (itemRef, componentProps) => {

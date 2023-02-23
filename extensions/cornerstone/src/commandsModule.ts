@@ -19,6 +19,7 @@ import { setColormap } from './utils/colormap/transferFunctionHelpers';
 import toggleMPRHangingProtocol from './utils/mpr/toggleMPRHangingProtocol';
 import toggleStackImageSync from './utils/stackSync/toggleStackImageSync';
 import defaultContextMenu from './defaultContextMenu';
+import { getFirstAnnotationSelected } from './utils/measurementServiceMappings/utils/selection';
 import getActiveViewportEnabledElement from './utils/getActiveViewportEnabledElement';
 
 function commandsModule({ servicesManager, commandsManager }) {
@@ -93,24 +94,41 @@ function commandsModule({ servicesManager, commandsManager }) {
      *   nearbyToolData for the annotation near the click point (this is often the same as value)
      */
     showViewerContextMenu: options => {
-      const viewportElement = _getActiveViewportEnabledElement()?.viewport
+      const viewerElement = _getActiveViewportEnabledElement()?.viewport
         ?.element;
 
-      const { menuName } = options;
-
       const optionsToUse = { ...options };
+      const { useSelectedAnnotation, nearbyToolData, menuName } = optionsToUse;
+
       if (menuName) {
-        // The mode
         Object.assign(
-          options,
-          customizationService.get(menuName, defaultContextMenu)
+          optionsToUse,
+          customizationService.getModeCustomization(
+            menuName,
+            defaultContextMenu
+          )
         );
       }
 
-      // The checkProps are the properties used for checking if a given
-      // menu applies.  At the moment this includes the toolname and
-      // annotation uid and the nearby tool data.
-      // Future uses may need richer data here.
+      // This code is used to invoke the context menu via keyboard shortcuts
+      if (useSelectedAnnotation && !nearbyToolData) {
+        const firstAnnotationSelected = getFirstAnnotationSelected(
+          viewerElement
+        );
+        // filter by allowed selected tools from config property (if there is any)
+        if (
+          !optionsToUse.allowedSelectedTools ||
+          optionsToUse.allowedSelectedTools.includes(
+            firstAnnotationSelected?.metadata?.toolName
+          )
+        ) {
+          optionsToUse.nearbyToolData = firstAnnotationSelected;
+        } else {
+          return;
+        }
+      }
+
+      // TODO - make the checkProps richer by including the study metadata and display set.
       optionsToUse.checkProps = {
         toolName: optionsToUse.nearbyToolData?.metadata?.toolName,
         value: optionsToUse.nearbyToolData,
@@ -118,7 +136,19 @@ function commandsModule({ servicesManager, commandsManager }) {
         nearbyToolData: optionsToUse.nearbyToolData,
       };
 
-      contextMenuController.showContextMenu(options, viewportElement, []);
+      let defaultPointsPosition = [];
+      if (options.nearbyToolData) {
+        defaultPointsPosition = commandsManager.runCommand(
+          'getToolDataActiveCanvasPoints',
+          { toolData: optionsToUse.nearbyToolData }
+        );
+      }
+
+      contextMenuController.showContextMenu(
+        optionsToUse,
+        viewerElement,
+        defaultPointsPosition
+      );
     },
 
     /** Close a context menu currently displayed */
@@ -166,13 +196,28 @@ function commandsModule({ servicesManager, commandsManager }) {
     },
 
     updateMeasurement: props => {
-      const { code, uid, measurementKey = 'finding' } = props;
+      const { code, uid, measurementKey = 'finding', textLabel, label } = props;
       const measurement = measurementService.getMeasurement(uid);
       const updatedMeasurement = {
         ...measurement,
-        [measurementKey]: code,
-        label: code.text,
       };
+      // Call it textLabel as the label value
+      // TODO - remove the label setting when direct rendering of findingSites is enabled
+      if (textLabel !== undefined || label) {
+        updatedMeasurement.label = textLabel || label;
+      }
+      if (code !== undefined) {
+        if (code.ref && !code.CodeValue) {
+          const split = code.ref.indexOf(':');
+          code.CodeValue = code.ref.substring(split + 1);
+          code.CodeMeaning = code.text;
+          code.CodingSchemeDesignator = code.ref.substring(0, split);
+        }
+        updatedMeasurement[measurementKey] = code;
+        if (measurementKey === 'site') {
+          updatedMeasurement.findingSites = code ? [code] : [];
+        }
+      }
       measurementService.update(
         updatedMeasurement.uid,
         updatedMeasurement,
