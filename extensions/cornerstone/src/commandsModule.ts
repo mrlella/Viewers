@@ -11,15 +11,17 @@ import {
   ReferenceLinesTool,
 } from '@cornerstonejs/tools';
 import { ServicesManager } from '@ohif/core';
+import { ContextMenu } from '@ohif/ui';
 
 import CornerstoneViewportDownloadForm from './utils/CornerstoneViewportDownloadForm';
 import callInputDialog from './utils/callInputDialog';
 import { setColormap } from './utils/colormap/transferFunctionHelpers';
 import toggleMPRHangingProtocol from './utils/mpr/toggleMPRHangingProtocol';
 import toggleStackImageSync from './utils/stackSync/toggleStackImageSync';
+import defaultContextMenu from './defaultContextMenu';
 import getActiveViewportEnabledElement from './utils/getActiveViewportEnabledElement';
 
-const commandsModule = ({ servicesManager }) => {
+function commandsModule({ servicesManager, commandsManager }) {
   const {
     viewportGridService,
     toolGroupService,
@@ -29,7 +31,15 @@ const commandsModule = ({ servicesManager }) => {
     cornerstoneViewportService,
     hangingProtocolService,
     uiNotificationService,
+    customizationService,
+    measurementService,
   } = (servicesManager as ServicesManager).services;
+
+  const { measurementServiceSource } = this;
+  const contextMenuController = new ContextMenu.Controller(
+    servicesManager,
+    commandsManager
+  );
 
   function _getActiveViewportEnabledElement() {
     return getActiveViewportEnabledElement(viewportGridService);
@@ -70,9 +80,109 @@ const commandsModule = ({ servicesManager }) => {
   }
 
   const actions = {
-    getActiveViewportEnabledElement: () => {
-      return _getActiveViewportEnabledElement();
+    /**
+     * Show the specified context menu, with viewer specific
+     * information in the checkParams used to determine which
+     * menus are displayed.
+     * See ContextMenuController for definitions of the menu format
+     * and checkParams.
+     * The checkParams contains:
+     *   toolName of the tool currently selected
+     *   uid of the annotation selected
+     *   value of the annotation object of interest
+     *   nearbyToolData for the annotation near the click point (this is often the same as value)
+     */
+    showViewerContextMenu: options => {
+      const viewportElement = _getActiveViewportEnabledElement()?.viewport
+        ?.element;
+
+      const { menuName } = options;
+
+      const optionsToUse = { ...options };
+      if (menuName) {
+        // The mode
+        Object.assign(
+          options,
+          customizationService.get(menuName, defaultContextMenu)
+        );
+      }
+
+      // The checkProps are the properties used for checking if a given
+      // menu applies.  At the moment this includes the toolname and
+      // annotation uid and the nearby tool data.
+      // Future uses may need richer data here.
+      optionsToUse.checkProps = {
+        toolName: optionsToUse.nearbyToolData?.metadata?.toolName,
+        value: optionsToUse.nearbyToolData,
+        uid: optionsToUse.nearbyToolData?.annotationUID,
+        nearbyToolData: optionsToUse.nearbyToolData,
+      };
+
+      contextMenuController.showContextMenu(options, viewportElement, []);
     },
+
+    /** Close a context menu currently displayed */
+    closeContextMenu: () => {
+      contextMenuController.closeContextMenu();
+    },
+
+    getNearbyToolData({ nearbyToolData, element, canvasCoordinates }) {
+      return (
+        nearbyToolData ??
+        cstUtils.getAnnotationNearPoint(element, canvasCoordinates)
+      );
+    },
+
+    // Measurement tool commands:
+    deleteMeasurement: ({ uid }) => {
+      if (uid) {
+        measurementServiceSource.remove(uid);
+      }
+    },
+
+    setMeasurementLabel: ({ uid }) => {
+      const measurement = measurementService.getMeasurement(uid);
+
+      callInputDialog(
+        uiDialogService,
+        measurement,
+        (label, actionId) => {
+          if (actionId === 'cancel') {
+            return;
+          }
+
+          const updatedMeasurement = Object.assign({}, measurement, {
+            label,
+          });
+
+          measurementService.update(
+            updatedMeasurement.uid,
+            updatedMeasurement,
+            true
+          );
+        },
+        false
+      );
+    },
+
+    updateMeasurement: props => {
+      const { code, uid, measurementKey = 'finding' } = props;
+      const measurement = measurementService.getMeasurement(uid);
+      const updatedMeasurement = {
+        ...measurement,
+        [measurementKey]: code,
+        label: code.text,
+      };
+      measurementService.update(
+        updatedMeasurement.uid,
+        updatedMeasurement,
+        true
+      );
+    },
+
+    // Retrieve value commands
+    getActiveViewportEnabledElement: _getActiveViewportEnabledElement,
+
     setViewportActive: ({ viewportId }) => {
       const viewportInfo = cornerstoneViewportService.getViewportInfo(
         viewportId
@@ -446,6 +556,46 @@ const commandsModule = ({ servicesManager }) => {
   };
 
   const definitions = {
+    // The command here is to show the viewer context menu, as being the
+    // context menu
+    showViewerContextMenu: {
+      commandFn: actions.showViewerContextMenu,
+      storeContexts: [],
+      options: {},
+    },
+
+    closeContextMenu: {
+      commandFn: actions.closeContextMenu,
+      storeContexts: [],
+      options: {},
+    },
+    getNearbyToolData: {
+      commandFn: actions.getNearbyToolData,
+      storeContexts: [],
+      options: {},
+    },
+
+    deleteMeasurement: {
+      commandFn: actions.deleteMeasurement,
+      storeContexts: [],
+      options: {},
+    },
+    setMeasurementLabel: {
+      commandFn: actions.setMeasurementLabel,
+      storeContexts: [],
+      options: {},
+    },
+    setFinding: {
+      commandFn: actions.updateMeasurement,
+      storeContexts: [],
+      options: { measurementKey: 'finding' },
+    },
+    setSite: {
+      commandFn: actions.updateMeasurement,
+      storeContexts: [],
+      options: { measurementKey: 'site' },
+    },
+
     setWindowLevel: {
       commandFn: actions.setWindowLevel,
       storeContexts: [],
@@ -581,6 +731,6 @@ const commandsModule = ({ servicesManager }) => {
     definitions,
     defaultContext: 'CORNERSTONE',
   };
-};
+}
 
 export default commandsModule;
