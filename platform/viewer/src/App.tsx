@@ -5,6 +5,12 @@ import i18n from '@ohif/i18n';
 import { I18nextProvider } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
 import Compose from './routes/Mode/Compose';
+import {
+  MsalAuthenticationTemplate,
+  MsalProvider,
+  useMsal,
+} from '@azure/msal-react';
+import { msalConfig } from './authconfig';
 
 import {
   DialogProvider,
@@ -23,11 +29,13 @@ import { AppConfigProvider } from '@state';
 import createRoutes from './routes';
 import appInit from './appInit.js';
 import OpenIdConnectRoutes from './utils/OpenIdConnectRoutes';
+import { InteractionType, PublicClientApplication } from '@azure/msal-browser';
 
 let commandsManager, extensionManager, servicesManager, hotkeysManager;
 
 function App({ config, defaultExtensions, defaultModes }) {
   const [init, setInit] = useState(null);
+
   useEffect(() => {
     const run = async () => {
       appInit(config, defaultExtensions, defaultModes)
@@ -49,6 +57,22 @@ function App({ config, defaultExtensions, defaultModes }) {
   hotkeysManager = init.hotkeysManager;
 
   // Set appConfig
+  // if (init.appConfig) {
+  //   init.appConfig.oidc = [
+  //     {
+  //       // ~ REQUIRED
+  //       // Authorization Server URL
+  //       authority:
+  //         'https://login.microsoftonline.com/af8e89a3-d9ac-422f-ad06-cc4eb4214314/',
+  //       client_id: 'ee554483-aefa-410a-ac1a-8f20a4b13510',
+  //       redirect_uri: 'http://localhost:3000/',
+  //       // response_type: 'code', // "Authorization Code Flow"
+  //       // scope: 'read', // email profile openid
+  //       // ~ OPTIONAL
+  //       post_logout_redirect_uri: '/logout-redirect.html',
+  //     },
+  //   ];
+  // }
   const appConfigState = init.appConfig;
   const {
     routerBasename,
@@ -81,6 +105,7 @@ function App({ config, defaultExtensions, defaultModes }) {
     [DialogProvider, { service: UIDialogService }],
     [ModalProvider, { service: uiModalService, modal: Modal }],
   ];
+
   const CombinedProviders = ({ children }) =>
     Compose({ components: providers, children });
 
@@ -100,6 +125,8 @@ function App({ config, defaultExtensions, defaultModes }) {
     routerBasename,
     showStudyList,
   });
+  console.log('oidc>>', oidc);
+  const msalInstance = new PublicClientApplication(msalConfig);
 
   if (oidc) {
     authRoutes = (
@@ -110,14 +137,14 @@ function App({ config, defaultExtensions, defaultModes }) {
       />
     );
   }
-
   return (
-    <CombinedProviders>
-      <BrowserRouter basename={routerBasename}>
-        {authRoutes}
-        {appRoutes}
-      </BrowserRouter>
-    </CombinedProviders>
+    <MsalProvider instance={msalInstance}>
+      <MsalAuthenticationTemplate interactionType={InteractionType.Redirect}>
+        <CombinedProviders>
+          <BrowserRouter basename={routerBasename}>{appRoutes}</BrowserRouter>
+        </CombinedProviders>
+      </MsalAuthenticationTemplate>
+    </MsalProvider>
   );
 }
 

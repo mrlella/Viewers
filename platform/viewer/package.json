@@ -46,6 +46,9 @@
     "README.md"
   ],
   "dependencies": {
+    "@azure/msal-browser": "^2.34.0",
+    "@azure/msal-common": "^11.0.0",
+    "@azure/msal-react": "^1.5.4",
     "@babel/runtime": "^7.20.13",
     "@ohif/core": "^3.0.0",
     "@ohif/extension-cornerstone": "^3.0.0",
@@ -57,8 +60,8 @@
     "@ohif/extension-test": "0.0.1",
     "@ohif/i18n": "^1.0.0",
     "@ohif/mode-basic-dev-mode": "^3.0.0",
-    "@ohif/mode-test": "^0.0.1",
     "@ohif/mode-longitudinal": "^3.0.0",
+    "@ohif/mode-test": "^0.0.1",
     "@ohif/ui": "^2.0.0",
     "@types/react": "^17.0.38",
     "classnames": "^2.3.2",
